@@ -14,9 +14,17 @@ const group = (children, transform) => config => {
             const {x = 0, y = 0} = result.translate
             context.translate(x, y)
         }
+        if(result.anchor) {
+            const {x = 0, y = 0} = result.anchor
+            context.translate(x, y)
+        } 
         if(result.rotate) {
             context.rotate(result.rotate)
         }
+        if(result.anchor) {
+            const {x = 0, y = 0} = result.anchor
+            context.translate(-x, -y)
+        } 
     }
     context.beginPath()
     const next = children.reduce((next, child) => child({
@@ -81,7 +89,7 @@ const update = callback => config => {
 }
 
 const withState = callback => config => {
-    callback(config.next)(config)
+    callback(config.state)(config)
 }
 
 const game = {
@@ -110,7 +118,11 @@ const game = {
                     rotation: state.rotation + 2 * Math.PI * state.diff
                 }))              
             ], (state) => ({
-                rotate: state.rotation
+                rotate: state.rotation,
+                anchor: {
+                    x: 15,
+                    y: 15
+                }
             })),
             group([
                 align("center"),
