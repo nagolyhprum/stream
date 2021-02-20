@@ -1,21 +1,34 @@
-document.querySelector('body').addEventListener('click', function() {
+let started = false
+
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+const audioNodes = {}
+const canvas = document.getElementById("canvas")
+const videoContext = canvas.getContext("2d")
+const fps = document.getElementById("fps")
+let total = 0
+let last = Date.now()
+
+document.body.onclick = () => {
+    if(started) return 
+    started = true
     const socket = io();
     socket.on("connect", () => {
-        console.log(socket.id);
+        console.log("connect", socket.id);
     });
-    document.body.onkeydown = (e) => {
-        socket.emit("input", e.which, true)
+    document.body.onkeydown = e => {
+        socket.emit("input", {
+            type: "key",
+            key: e.key,
+            value: true
+        })
     }
-    document.body.onkeyup = (e) => {
-        socket.emit("input", e.which, false)
+    document.body.onkeyup = e => {
+        socket.emit("input", {
+            type: "key",
+            key: e.key,
+            value: false
+        })
     }
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const audioNodes = {}
-    const canvas = document.getElementById("canvas")
-    const videoContext = canvas.getContext("2d")
-    const fps = document.getElementById("fps")
-    let total = 0
-    let last = Date.now()
     setInterval(() => {
         fps.innerHTML = `${Math.floor(1000 / total)}`
     }, 1000)
@@ -29,7 +42,6 @@ document.querySelector('body').addEventListener('click', function() {
         videoContext.putImageData(image, 0, 0)
     })
     socket.on("audio", (data) => {
-        console.log(data)
         if(data.length / data.sampleRate !== data.duration) {
             console.error("mismatch length")
         }
@@ -52,6 +64,6 @@ document.querySelector('body').addEventListener('click', function() {
         audioNodes[data.id] = nextStartAt + data.duration
     })
     socket.on("disconnect", () => {
-        console.log(socket.id);
+        console.log("disconnect", socket.id);
     });
-})
+}
