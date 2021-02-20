@@ -1,0 +1,13 @@
+version: '2.1'
+services:
+  stream:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./index.js:/home/index.js
+      - ./public:/home/public
+      - ./package.json:/home/package.json
+      - ./package-lock.json:/home/package-lock.json
+    environment:
+      - "CHOKIDAR_USEPOLLING=1"
