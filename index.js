@@ -1,9 +1,16 @@
 const express = require('express')
 const path = require("path")
-const { createCanvas } = require('canvas')
+const { createCanvas, loadImage } = require('canvas')
 const audioLoader = require('audio-loader')
 const http = require('http')
 const socketIO = require('socket.io')
+
+const images = {}
+
+// Draw cat with lime helmet
+loadImage(path.join(__dirname, "the_image.png")).then((image) => {
+    images.the_image = image
+})
 
 const background = audioLoader(path.join(__dirname, "eclaircie.mp3")).then(it => {
     delete it._data
@@ -33,6 +40,7 @@ io.on('connection', client => {
         state.rotation += (Math.PI / 180) * diff
         ctx.save()
         ctx.clearRect(0, 0, 200, 200)
+        ctx.drawImage(images.the_image, 0, 0)
         ctx.font = '30px Impact'
         ctx.rotate(state.rotation)
         ctx.fillText('Awesome!', 50, 100)
@@ -71,6 +79,10 @@ io.on('connection', client => {
             }
         })
     }, 1000)
+    state.inputs = {}
+    client.on("input", (name, value) => {
+        state.inputs[name] = value
+    })
     client.on("disconnect", () => {
         clearInterval(video)
         clearInterval(audio)

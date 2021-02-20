@@ -3,6 +3,12 @@ document.querySelector('body').addEventListener('click', function() {
     socket.on("connect", () => {
         console.log(socket.id);
     });
+    document.body.onkeydown = (e) => {
+        socket.emit("input", e.which, true)
+    }
+    document.body.onkeyup = (e) => {
+        socket.emit("input", e.which, false)
+    }
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const audioNodes = {}
     const canvas = document.getElementById("canvas")
