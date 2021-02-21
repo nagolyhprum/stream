@@ -29,17 +29,34 @@ document.body.onclick = () => {
             value: false
         })
     }
+    canvas.onmousemove = e => {
+        const bounds = canvas.getBoundingClientRect()
+        socket.emit("input", {
+            type: "move",
+            x: e.pageX - bounds.x,
+            y: e.pageY - bounds.y
+        })
+    }
+    canvas.onclick = e => {
+        const bounds = canvas.getBoundingClientRect()
+        socket.emit("input", {
+            type: "click",
+            x: e.pageX - bounds.x,
+            y: e.pageY - bounds.y
+        })
+    }
     setInterval(() => {
         fps.innerHTML = `${Math.floor(1000 / total)}`
     }, 1000)
-    socket.on("video", (buffer) => {
+    socket.on("video", ({cursor, imageData}) => {
         const now = Date.now()
         const diff = now - last;
         last = now;    
         total = (total + diff) / 2
-        const array = new Uint8ClampedArray(buffer);
+        const array = new Uint8ClampedArray(imageData);
         const image = new ImageData(array, 200, 200);
         videoContext.putImageData(image, 0, 0)
+        canvas.style.cursor = cursor
     })
     socket.on("audio", (data) => {
         if(data.length / data.sampleRate !== data.duration) {

@@ -4,29 +4,54 @@ const { createCanvas, loadImage } = require('canvas')
 const audioLoader = require('audio-loader')
 const http = require('http')
 const socketIO = require('socket.io')
+const { Matrix } = require('ml-matrix');
+const { pointInSvgPath } = require('point-in-svg-path')
 
 const group = (children, transform) => config => {
     const {context} = config
     const result = typeof transform === "function" ? transform(config.state) : transform
     if(result) {
-        context.save()    
+        context.save()  
+        context.state.push(context.state[context.state.length - 1])  
         if(result.translate) {
             const {x = 0, y = 0} = result.translate
             context.translate(x, y)
+            applyMatrix(context, new Matrix([
+                [1, 0, x],
+                [0, 1, y],
+                [0, 0, 1]
+            ]))
         }
         if(result.anchor) {
             const {x = 0, y = 0} = result.anchor
             context.translate(x, y)
+            applyMatrix(context, new Matrix([
+                [1, 0, x],
+                [0, 1, y],
+                [0, 0, 1]
+            ]))
         } 
-        if(result.rotate) {
-            context.rotate(result.rotate)
+        const {rotate} = result
+        if(rotate) {
+            context.rotate(rotate)
+            applyMatrix(context, new Matrix([
+                [Math.cos(rotate), -Math.sin(rotate), 0],
+                [Math.sin(rotate), Math.cos(rotate), 0],
+                [0, 0, 1]
+            ]))
         }
         if(result.anchor) {
             const {x = 0, y = 0} = result.anchor
             context.translate(-x, -y)
+            applyMatrix(context, new Matrix([
+                [1, 0, -x],
+                [0, 1, -y],
+                [0, 0, 1]
+            ]))
         } 
     }
     context.beginPath()
+    context.path = []
     const next = children.reduce((next, child) => child({
         ...config,
         next
@@ -35,6 +60,7 @@ const group = (children, transform) => config => {
     context.stroke()
     if(transform) {
         context.restore()
+        context.state.pop()  
     }
     return next
 }
@@ -68,15 +94,33 @@ const align = align => ({context}) => {
     context.textAlign = align
 }
 
+const applyState = ({context, x, y}) => {
+    const state = context.state[context.state.length - 1]
+    const result = state.mmul(new Matrix([
+        [x],
+        [y],
+        [1]
+    ]))
+    return {
+        x: result.get(0, 0),
+        y: result.get(1, 0)
+    }
+}
+
 const move = (x, y) => ({context}) => {
+    const point = applyState({context, x, y})
+    context.path.push(`M${point.x} ${point.y}`)
     context.moveTo(x, y)
 }
 
 const line = (x, y) => ({context}) => {
+    const point = applyState({context, x, y})
+    context.path.push(`L${point.x} ${point.y}`)
     context.lineTo(x, y)
 }
 
 const close = ({context}) => {
+    context.path.push("Z")
     context.closePath()
 }
 
@@ -90,6 +134,20 @@ const update = callback => config => {
 
 const withState = callback => config => {
     callback(config.state)(config)
+}
+
+const click = (callback) => ({state, next, context}) => {
+    const path = context.path.join("")
+    const click = state.mouse.click
+    const move = state.mouse.move
+    const contains = pointInSvgPath(path, move.x, move.y)    
+    if(contains && click) {
+        return callback(next)
+    }
+    return {
+        ...next,
+        cursor: contains ? "pointer" : next.cursor
+    }
 }
 
 const game = {
@@ -108,20 +166,24 @@ const game = {
             image("the_image", 50, 50, 100, 100),
             group([
                 move(10, 10),
-                line(20, 20),
-                line(10, 20),
+                line(50, 50),
+                line(10, 50),
                 close,
+                click(state => ({
+                    ...state,
+                    direction : -state.direction
+                })),
                 fill("blue"),
                 stroke("yellow"),
                 update(state => ({
                     ...state,
-                    rotation: state.rotation + 2 * Math.PI * state.diff
+                    rotation: state.rotation + state.direction * state.diff
                 }))              
             ], (state) => ({
                 rotate: state.rotation,
                 anchor: {
-                    x: 15,
-                    y: 15
+                    x: 30,
+                    y: 30
                 }
             })),
             group([
@@ -144,6 +206,11 @@ const game = {
     }
 }
 
+const applyMatrix = (context, matrix) => {
+    const index = context.state.length - 1
+    context.state[index] = context.state[index].mmul(matrix)
+}
+
 const package = (game) => {
     const {preload:{images}} = game
     Object.keys(images).map(key => {
@@ -160,6 +227,14 @@ const package = (game) => {
     const {width, height} = game
     const canvas = createCanvas(width, height)
     const context = canvas.getContext('2d')
+    context.state = [
+        new Matrix([
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, 1]
+        ])
+    ]
+    context.path = []
     return (state) => {
         context.clearRect(0, 0, width, height)
         const nextState = game.screens.main({
@@ -185,7 +260,15 @@ io.on('connection', client => {
     let state = {
         rotation: 0,
         last_update: Date.now(),
-        inputs: {}
+        inputs: {},
+        cursor: "default",
+        direction: 2 * Math.PI,
+        mouse: {
+            move: {
+                x: -1,
+                y: -1
+            }
+        }
     }
     const video = setInterval(() => {
         const now = Date.now()
@@ -195,13 +278,21 @@ io.on('connection', client => {
             nextState
         } = draw({
             ...state,
-            diff
+            diff,
+            cursor: "default"
         })
         state = {
             ...nextState,
-            last_update: now
+            last_update: now,
+            mouse: {
+                ...nextState.mouse,
+                click: false
+            }
         }
-        client.emit("video", imageData)
+        client.emit("video", {
+            imageData,
+            cursor: state.cursor
+        })
     }, 1000 / 60)
     // let offset = 0
     // const audio = setInterval(() => {
@@ -228,8 +319,33 @@ io.on('connection', client => {
     //         }
     //     })
     // }, 1000)
-    client.on("input", (name, value) => {
-        state.inputs[name] = value
+    client.on("input", (config) => {
+        const {type} = config
+        switch(type) {
+            case "click":
+                state = {
+                    ...state,
+                    mouse: {
+                        ...state.mouse,
+                        click: true
+                    }
+                }
+                break;
+            case "move":
+                state = {
+                    ...state,
+                    mouse: {
+                        ...state.mouse,
+                        move: {
+                            x: config.x,
+                            y: config.y
+                        }
+                    }
+                }
+                break;
+            case "key":
+                state.inputs[config.key] = config.value
+        }
     })
     client.on("disconnect", () => {
         clearInterval(video)

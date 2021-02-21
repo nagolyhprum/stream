@@ -3,6 +3,8 @@
     "audio-loader": "^1.0.3",
     "canvas": "^2.6.1",
     "express": "^4.17.1",
+    "ml-matrix": "^6.6.0",
+    "point-in-svg-path": "^1.0.1",
     "socket.io": "^3.1.1"
   }
 }
