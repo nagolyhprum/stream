@@ -1,4 +1,7 @@
-const express = require('express')
+import TheImage from './the_image.png'
+import Eclaire from './eclaircie.mp3'
+import express from 'express'
+
 const path = require("path")
 const { createCanvas, loadImage } = require('canvas')
 const audioLoader = require('audio-loader')
@@ -155,10 +158,10 @@ const game = {
     height: 200,
     preload: {
         images: {
-            the_image: "the_image.png"
+            the_image: TheImage
         },
         audio: {
-            background: "eclaircie.mp3"
+            background: Eclaire
         }
     },
     screens: {
@@ -211,7 +214,7 @@ const applyMatrix = (context, matrix) => {
     context.state[index] = context.state[index].mmul(matrix)
 }
 
-const package = (game) => {
+const pack = (game) => {
     const {preload:{images}} = game
     Object.keys(images).map(key => {
         return loadImage(path.join(__dirname, images[key])).then((data) => {
@@ -250,10 +253,10 @@ const package = (game) => {
     }
 }
 
-const draw = package(game)
+const draw = pack(game)
 
 const app = express();
-app.use(express.static(path.join(__dirname, "public")))
+app.use(express.static(path.join(__dirname, "..", "client")))
 const server = http.createServer(app);
 const io = socketIO(server);
 io.on('connection', client => {
@@ -267,7 +270,8 @@ io.on('connection', client => {
             move: {
                 x: -1,
                 y: -1
-            }
+            },
+            click: false
         }
     }
     const video = setInterval(() => {

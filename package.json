@@ -4,7 +4,19 @@
     "canvas": "^2.6.1",
     "express": "^4.17.1",
     "ml-matrix": "^6.6.0",
+    "nodemon": "^2.0.7",
+    "parcel-bundler": "^1.12.4",
     "point-in-svg-path": "^1.0.1",
-    "socket.io": "^3.1.1"
+    "socket.io": "^3.1.1",
+    "socket.io-client": "^3.1.1"
+  },
+  "scripts": {
+    "client:build": "parcel watch src/client/index.html --out-dir build/client --out-file index.html --target browser --no-autoinstall --no-cache --hmr-port 8080",
+    "server:build": "parcel watch src/server/index.ts --out-dir build/server --target  --out-file index.js node --no-autoinstall --no-hmr --no-cache",
+    "server": "nodemon --cwd build/server index.js",
+    "start": "npm run client:build & npm run server:build & npm run server"
+  },
+  "devDependencies": {
+    "typescript": "^4.1.5"
   }
 }

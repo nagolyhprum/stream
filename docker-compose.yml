@@ -3,10 +3,10 @@ services:
   stream:
     build: .
     ports:
-      - "3000:3000"
+      - "3000:3000" # HTTP
+      - "8080:8080" # HMR
     volumes:
-      - ./index.js:/home/index.js
-      - ./public:/home/public
+      - ./src:/home/src
       - ./package.json:/home/package.json
       - ./package-lock.json:/home/package-lock.json
     environment:

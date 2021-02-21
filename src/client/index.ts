@@ -1,3 +1,5 @@
+import io from "socket.io-client"
+
 let started = false
 
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
