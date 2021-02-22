@@ -5,11 +5,11 @@ import path from 'path';
 import { createCanvas, loadImage } from 'canvas';
 import audioLoader from 'audio-loader';
 import http from 'http';
-import socketIO from 'socket.io';
+import socketIO, { Socket } from 'socket.io';
 import { Matrix } from 'ml-matrix';
 import { pointInSvgPath } from 'point-in-svg-path';
 
-const group = (children, transform) => config => {
+const group = <State extends BaseState>(children: Array<Drawable<State>>, transform?: TransformState<State>): Drawable<State> => config => {
 	const {context} = config;
 	const result = typeof transform === 'function' ? transform(config.state) : transform;
 	if(result) {
@@ -67,36 +67,43 @@ const group = (children, transform) => config => {
 	return next;
 };
 
-const text = (text, x, y) => ({context}) => {
+const text = <State extends BaseState>(text: string, x: number, y: number): Drawable<State> => ({context}) => {
 	context.fillText(text, x, y);
 	context.strokeText(text, x, y);
 };
 
-const fill = style => ({context}) => { 
+const fill = <State extends BaseState>(style: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => { 
 	context.fillStyle = style;
 };
 
-const stroke = style => ({context}) => {
+const stroke = <State extends BaseState>(style: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => {
 	context.strokeStyle = style;
 };
 
-const font = font => ({context}) => {
+const font = <State extends BaseState>(font: string): Drawable<State> => ({context}) => {
 	context.font = font;
 };
 
-const width = width => ({context}) => {
+const width = <State extends BaseState>(width: number): Drawable<State> => ({context}) => {
 	context.lineWidth = width;
 };
 
-const baseline = baseline => ({context}) => {
+const baseline = <State extends BaseState>(baseline: CanvasTextBaseline): Drawable<State> => ({context}) => {
 	context.textBaseline = baseline;
 };
 
-const align = align => ({context}) => {
+const align = <State extends BaseState>(align: CanvasTextAlign): Drawable<State> => ({context}) => {
 	context.textAlign = align;
 };
 
-const applyState = ({context, x, y}) => {
+const applyState = ({context, x, y}: {
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number
+}): {
+    x: number,
+    y: number
+} => {
 	const state = context.state[context.state.length - 1];
 	const result = state.mmul(new Matrix([
 		[x],
@@ -109,36 +116,36 @@ const applyState = ({context, x, y}) => {
 	};
 };
 
-const move = (x, y) => ({context}) => {
+const move = <State extends BaseState>(x: number, y: number): Drawable<State> => ({context}) => {
 	const point = applyState({context, x, y});
 	context.path.push(`M${point.x} ${point.y}`);
 	context.moveTo(x, y);
 };
 
-const line = (x, y) => ({context}) => {
+const line = <State extends BaseState>(x: number, y: number): Drawable<State> => ({context}) => {
 	const point = applyState({context, x, y});
 	context.path.push(`L${point.x} ${point.y}`);
 	context.lineTo(x, y);
 };
 
-const close = ({context}) => {
+const close = <State extends BaseState>(): Drawable<State> => ({context}) => {
 	context.path.push('Z');
 	context.closePath();
 };
 
-const image = (src, x, y, dw, dh) => ({context, game}) => {
-	context.drawImage(game.preload.images[src], x, y, dw, dh);
+const image = <State extends BaseState>(src: string, dx: number, dy: number, dw: number, dh: number): Drawable<State> => ({context, game}) => {
+	context.drawImage(game.images[src], dx, dy, dw, dh);
 };
 
-const update = callback => config => {
+const update = <State extends BaseState>(callback: (state: State) => State): Drawable<State> => config => {
 	return callback(config.next);
 };
 
-const withState = callback => config => {
+const withState = <State extends BaseState>(callback: (state: State) => Drawable<State>): Drawable<State> => config => {
 	callback(config.state)(config);
 };
 
-const click = (callback) => ({state, next, context}) => {
+const click = <State extends BaseState>(callback: (state: State) => State): Drawable<State> => ({state, next, context}) => {
 	const path = context.path.join('');
 	const click = state.mouse.click;
 	const move = state.mouse.move;
@@ -152,7 +159,7 @@ const click = (callback) => ({state, next, context}) => {
 	};
 };
 
-const game = {
+const game: Game<TestState> = {
 	width: 200,
 	height: 200,
 	preload: {
@@ -163,6 +170,8 @@ const game = {
 			background: Eclaire
 		}
 	},
+	images: {},
+	audio: {},
 	screens: {
 		main: group([
 			image('the_image', 50, 50, 100, 100),
@@ -170,7 +179,7 @@ const game = {
 				move(10, 10),
 				line(50, 50),
 				line(10, 50),
-				close,
+				close(),
 				click(state => ({
 					...state,
 					direction : -state.direction
@@ -208,27 +217,27 @@ const game = {
 	}
 };
 
-const applyMatrix = (context, matrix) => {
+const applyMatrix = (context: CanvasRenderingContext2D, matrix: Matrix) => {
 	const index = context.state.length - 1;
 	context.state[index] = context.state[index].mmul(matrix);
 };
 
-const pack = (game) => {
+const pack = <State extends BaseState>(game: Game<State>) => {
 	const {preload:{images}} = game;
 	Object.keys(images).map(key => {
 		return loadImage(path.join(__dirname, images[key])).then((data) => {
-			images[key] = data;
+			game.images[key] = data;
 		});
 	});
 	const {preload:{audio}} = game;
 	Object.keys(audio).map(key => {
 		return audioLoader(path.join(__dirname, audio[key])).then((data) => {
-			audio[key] = data;
+			game.audio[key] = data;
 		});
 	});
 	const {width, height} = game;
 	const canvas = createCanvas(width, height);
-	const context = canvas.getContext('2d');
+	const context = canvas.getContext('2d') as CanvasRenderingContext2D;
 	context.state = [
 		new Matrix([
 			[1, 0, 0],
@@ -237,7 +246,7 @@ const pack = (game) => {
 		])
 	];
 	context.path = [];
-	return (state) => {
+	return (state: State) => {
 		context.clearRect(0, 0, width, height);
 		const nextState = game.screens.main({
 			context,
@@ -257,14 +266,17 @@ const draw = pack(game);
 const app = express();
 app.use(express.static(path.join(__dirname, '..', 'client')));
 const server = http.createServer(app);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 const io = socketIO(server);
-io.on('connection', client => {
-	let state = {
+io.on('connection', (client: Socket) => {
+	let state: TestState = {
 		rotation: 0,
 		last_update: Date.now(),
 		inputs: {},
 		cursor: 'default',
 		direction: 2 * Math.PI,
+		diff: 0,
 		mouse: {
 			move: {
 				x: -1,
@@ -284,14 +296,16 @@ io.on('connection', client => {
 			diff,
 			cursor: 'default'
 		});
-		state = {
-			...nextState,
-			last_update: now,
-			mouse: {
-				...nextState.mouse,
-				click: false
-			}
-		};
+		if(nextState) {
+			state = {
+				...nextState,
+				last_update: now,
+				mouse: {
+					...nextState.mouse,
+					click: false
+				}
+			};
+		}
 		client.emit('video', {
 			imageData,
 			cursor: state.cursor
@@ -322,9 +336,8 @@ io.on('connection', client => {
 	//         }
 	//     })
 	// }, 1000)
-	client.on('input', (config) => {
-		const {type} = config;
-		switch(type) {
+	client.on('input', (config: InputData) => {
+		switch(config.type) {
 		case 'click':
 			state = {
 				...state,

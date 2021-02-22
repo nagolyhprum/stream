@@ -132,14 +132,14 @@ var line = function (x, y) { return function (_a) {
     context.path.push("L" + point.x + " " + point.y);
     context.lineTo(x, y);
 }; };
-var close = function (_a) {
+var close = function () { return function (_a) {
     var context = _a.context;
     context.path.push('Z');
     context.closePath();
-};
-var image = function (src, x, y, dw, dh) { return function (_a) {
+}; };
+var image = function (src, dx, dy, dw, dh) { return function (_a) {
     var context = _a.context, game = _a.game;
-    context.drawImage(game.preload.images[src], x, y, dw, dh);
+    context.drawImage(game.images[src], dx, dy, dw, dh);
 }; };
 var update = function (callback) { return function (config) {
     return callback(config.next);
@@ -169,6 +169,8 @@ var game = {
             background: eclaircie_mp3_1.default
         }
     },
+    images: {},
+    audio: {},
     screens: {
         main: group([
             image('the_image', 50, 50, 100, 100),
@@ -176,7 +178,7 @@ var game = {
                 move(10, 10),
                 line(50, 50),
                 line(10, 50),
-                close,
+                close(),
                 click(function (state) { return (__assign(__assign({}, state), { direction: -state.direction })); }),
                 fill('blue'),
                 stroke('yellow'),
@@ -215,13 +217,13 @@ var pack = function (game) {
     var images = game.preload.images;
     Object.keys(images).map(function (key) {
         return canvas_1.loadImage(path_1.default.join(__dirname, images[key])).then(function (data) {
-            images[key] = data;
+            game.images[key] = data;
         });
     });
     var audio = game.preload.audio;
     Object.keys(audio).map(function (key) {
         return audio_loader_1.default(path_1.default.join(__dirname, audio[key])).then(function (data) {
-            audio[key] = data;
+            game.audio[key] = data;
         });
     });
     var width = game.width, height = game.height;
@@ -253,6 +255,8 @@ var draw = pack(game);
 var app = express_1.default();
 app.use(express_1.default.static(path_1.default.join(__dirname, '..', 'client')));
 var server = http_1.default.createServer(app);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 var io = socket_io_1.default(server);
 io.on('connection', function (client) {
     var state = {
@@ -261,6 +265,7 @@ io.on('connection', function (client) {
         inputs: {},
         cursor: 'default',
         direction: 2 * Math.PI,
+        diff: 0,
         mouse: {
             move: {
                 x: -1,
@@ -273,7 +278,9 @@ io.on('connection', function (client) {
         var now = Date.now();
         var diff = (now - state.last_update) / 1000;
         var _a = draw(__assign(__assign({}, state), { diff: diff, cursor: 'default' })), imageData = _a.imageData, nextState = _a.nextState;
-        state = __assign(__assign({}, nextState), { last_update: now, mouse: __assign(__assign({}, nextState.mouse), { click: false }) });
+        if (nextState) {
+            state = __assign(__assign({}, nextState), { last_update: now, mouse: __assign(__assign({}, nextState.mouse), { click: false }) });
+        }
         client.emit('video', {
             imageData: imageData,
             cursor: state.cursor
@@ -305,8 +312,7 @@ io.on('connection', function (client) {
     //     })
     // }, 1000)
     client.on('input', function (config) {
-        var type = config.type;
-        switch (type) {
+        switch (config.type) {
             case 'click':
                 state = __assign(__assign({}, state), { mouse: __assign(__assign({}, state.mouse), { click: true }) });
                 break;
