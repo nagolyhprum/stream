@@ -33,6 +33,23 @@ export const game = pack<TestState>({
 	},
 	images: {},
 	audio: {},
+	init() {
+		return {
+			users: {}
+		};
+	},
+	connect(state: TestState): TestState {
+		return {
+			...state,
+			users: {
+				...state.users,
+				[state.connection]: {
+					rotation: 0,
+					direction: 2 * Math.PI
+				}
+			}
+		};
+	},
 	screens: {
 		main: group([
 			image('the_image', 50, 50, 100, 100),
@@ -43,16 +60,28 @@ export const game = pack<TestState>({
 				close(),
 				click(state => ({
 					...state,
-					direction : -state.direction
+					users: {
+						...state.users,
+						[state.connection]: {
+							...state.users[state.connection],
+							direction: -state.users[state.connection].direction
+						}
+					}
 				})),
 				fill('blue'),
 				stroke('yellow'),
 				update(state => ({
 					...state,
-					rotation: state.rotation + state.direction * state.diff
+					users: {
+						...state.users,
+						[state.connection]: {
+							...state.users[state.connection],
+							rotation: state.users[state.connection].rotation + state.users[state.connection].direction * state.diff
+						}
+					}
 				}))              
 			], (state) => ({
-				rotate: state.rotation,
+				rotate: state.users[state.connection].rotation,
 				anchor: {
 					x: 30,
 					y: 30
@@ -64,7 +93,7 @@ export const game = pack<TestState>({
 				width(2),
 				font('40px Times New Roman'),
 				withState(state => {
-					return fill(state.rotation % (2 * Math.PI) < Math.PI ? 'red' : 'blue');
+					return fill(state.users[state.connection].rotation % (2 * Math.PI) < Math.PI ? 'red' : 'blue');
 				}),
 				stroke('green'),
 				text('hello word', 50, 50 )

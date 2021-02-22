@@ -159,9 +159,9 @@ export const click = <State extends BaseState>(callback: (state: State) => State
 	};
 };
 
-export const pack = <State extends BaseState>(game: Game<State>): (state: State) => {
+export const pack = <State extends BaseState>(game: Game<State>): (base: BaseState) => {
     imageData: ArrayBuffer,
-    nextState: State
+    cursor: string
 } => {
 	const {preload:{images}} = game;
 	Object.keys(images).map(key => {
@@ -186,17 +186,26 @@ export const pack = <State extends BaseState>(game: Game<State>): (state: State)
 		])
 	];
 	context.path = [];
-	return (state: State) => {
+	let state = game.init();
+	return (base: BaseState) => {
 		context.clearRect(0, 0, width, height);
-		const nextState = game.screens.main({
+		const build = base.isNew ? game.connect({
+			...state,
+			...base,
+		} as State) : {
+			...state,
+			...base,
+		} as State;
+		const next = game.screens.main({
 			context,
 			game,
-			state,
-			next: state
-		}) || state;
+			state: build,
+			next: build
+		}) || build;
+		state = next;
 		return {
 			imageData: context.getImageData(0, 0, width, height).data.buffer,
-			nextState
+			cursor: next.cursor
 		};
 	};
 };

@@ -10,13 +10,14 @@ const server = http.createServer(app);
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 const io = socketIO(server);
+const connections = new Set<string>();
 io.on('connection', (client: Socket) => {
-	let state: TestState = {
-		rotation: 0,
+	connections.add(client.id);
+	let base: BaseState = {
+		isNew: true,
 		last_update: Date.now(),
 		inputs: {},
 		cursor: 'default',
-		direction: 2 * Math.PI,
 		diff: 0,
 		mouse: {
 			move: {
@@ -24,32 +25,30 @@ io.on('connection', (client: Socket) => {
 				y: -1
 			},
 			click: false
-		}
+		},
+		connection: '',
+		connections: []
 	};
-	const video = setInterval(() => {
+	const video = setInterval(() => {  
 		const now = Date.now();
-		const diff = (now - state.last_update) / 1000;
-		const {
-			imageData,
-			nextState
-		} = game({
-			...state,
-			diff,
-			cursor: 'default'
+		const {imageData, cursor} = game({
+			...base,
+			diff: (now - base.last_update) / 1000,
+			connections: Array.from(connections),
+			connection: client.id
 		});
-		if(nextState) {
-			state = {
-				...nextState,
-				last_update: now,
-				mouse: {
-					...nextState.mouse,
-					click: false
-				}
-			};
-		}
+		base = {
+			...base,
+			mouse: {
+				...base.mouse,
+				click: false
+			},
+			isNew: false,
+			last_update: now,
+		};
 		client.emit('video', {
 			imageData,
-			cursor: state.cursor
+			cursor
 		});
 	}, 1000 / 60);
 	// let offset = 0
@@ -80,19 +79,19 @@ io.on('connection', (client: Socket) => {
 	client.on('input', (config: InputData) => {
 		switch(config.type) {
 		case 'click':
-			state = {
-				...state,
+			base = {
+				...base,
 				mouse: {
-					...state.mouse,
+					...base.mouse,
 					click: true
 				}
 			};
 			break;
 		case 'move':
-			state = {
-				...state,
+			base = {
+				...base,
 				mouse: {
-					...state.mouse,
+					...base.mouse,
 					move: {
 						x: config.x,
 						y: config.y
@@ -101,12 +100,19 @@ io.on('connection', (client: Socket) => {
 			};
 			break;
 		case 'key':
-			state.inputs[config.key] = config.value;
+			base = {
+				...base,
+				inputs: {
+					...base.inputs,
+					[config.key]: config.value
+				}
+			};
 		}
 	});
 	client.on('disconnect', () => {
 		clearInterval(video);
 		// clearInterval(audio)
+		connections.delete(client.id);
 	});
 });
 server.listen(3000, () => console.log('server listening'));

@@ -22,14 +22,14 @@ declare module 'point-in-svg-path' {
     export const pointInSvgPath: (path: string, x: number, y: number) => boolean;
 }
 
-interface DrawableConfig<State> {
+interface DrawableConfig<State extends BaseState> {
     game: Game<State>
     context: CanvasRenderingContext2D
     state: State
     next: State    
 }
 
-type Drawable<State> = (config: DrawableConfig<State>) => State | void;
+type Drawable<State extends BaseState> = (config: DrawableConfig<State>) => State | void;
 
 interface VideoData {
     cursor: 'pointer' | 'default'
@@ -66,9 +66,10 @@ interface Transform {
     rotate?: number
 }
 
-type TransformState<State> = ((state: State) => Transform) | Transform
+type TransformState<State extends BaseState> = ((state: State) => Transform) | Transform
 
 interface BaseState {
+    isNew: boolean
     last_update: number
     diff: number
     cursor: string
@@ -80,16 +81,24 @@ interface BaseState {
             y: number
         }
     }
+    connections: string[]
+    connection: string
 }
 
 interface TestState extends BaseState {
-    direction: number
-    rotation: number
+    users: Record<string, {
+        direction: number
+        rotation: number
+    }>
 }
 
-interface Game<State> {
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]: T[P] };
+
+interface Game<State extends BaseState> {
     width: number
     height: number
+    init(): Without<State, BaseState>
+    connect(state: State): State
     preload: {
         images: Record<string, string>
         audio: Record<string, string>
