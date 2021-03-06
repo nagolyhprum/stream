@@ -1,8 +1,8 @@
 import express from 'express';
-import path from 'path';
 import http from 'http';
+import path from 'path';
 import socketIO, { Socket } from 'socket.io';
-import {game} from './game';
+import { Pong } from './pong';
 
 const app = express();
 app.use(express.static(path.join(__dirname, '..', 'client')));
@@ -31,7 +31,7 @@ io.on('connection', (client: Socket) => {
 	};
 	const video = setInterval(() => {  
 		const now = Date.now();
-		const {imageData, cursor} = game({
+		const {imageData, cursor, width, height} = Pong({
 			...base,
 			diff: (now - base.last_update) / 1000,
 			connections: Array.from(connections),
@@ -43,12 +43,15 @@ io.on('connection', (client: Socket) => {
 				...base.mouse,
 				click: false
 			},
+			inputs: {},
 			isNew: false,
 			last_update: now,
 		};
 		client.emit('video', {
 			imageData,
-			cursor
+			cursor,
+			width,
+			height
 		});
 	}, 1000 / 60);
 	// let offset = 0

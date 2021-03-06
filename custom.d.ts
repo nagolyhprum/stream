@@ -29,11 +29,45 @@ interface DrawableConfig<State extends BaseState> {
     next: State    
 }
 
+interface PongState extends BaseState {
+    screens: Record<string, string>
+    cache: Record<string, string>
+    games: Record<string, {
+        left: string
+        right: string
+        paddle: {
+            left: {
+                position: number
+                velocity: number
+            },
+            right: {
+                position: number
+                velocity: number
+            }
+        },
+        ball: {
+            x: number,
+            y: number,
+            velocity: {
+                x: number,
+                y: number
+            }
+        },
+        score: {
+            left: number,
+            right: number
+        }
+    }>
+    pending: string
+}
+
 type Drawable<State extends BaseState> = (config: DrawableConfig<State>) => State | void;
 
 interface VideoData {
     cursor: 'pointer' | 'default'
     imageData: ArrayBuffer
+    width: number
+    height: number
 }
 
 interface AudioData {
@@ -106,6 +140,7 @@ interface Game<State extends BaseState> {
     audio: Record<string, AudioData>
     images: Record<string, CanvasImageSource>
     screens: Record<string, Drawable<State>>
+    getScreen: (state: State) => string
 }
 
 type InputData = {

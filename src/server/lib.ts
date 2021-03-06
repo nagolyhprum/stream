@@ -1,8 +1,8 @@
-import { pointInSvgPath } from 'point-in-svg-path';
-import { Matrix } from 'ml-matrix';
-import { createCanvas, loadImage } from 'canvas';
 import audioLoader from 'audio-loader';
+import { createCanvas, loadImage } from 'canvas';
+import { Matrix } from 'ml-matrix';
 import path from 'path';
+import { pointInSvgPath } from 'point-in-svg-path';
 
 const applyMatrix = (context: CanvasRenderingContext2D, matrix: Matrix) => {
 	const index = context.state.length - 1;
@@ -90,6 +90,11 @@ export const group = <State extends BaseState>(children: Array<Drawable<State>>,
 export const text = <State extends BaseState>(text: string, x: number, y: number): Drawable<State> => ({context}) => {
 	context.fillText(text, x, y);
 	context.strokeText(text, x, y);
+	const width = context.measureText(text).width;
+	const height = parseFloat(context.font);
+	const point = applyState({context, x, y});
+	const path = `M${point.x} ${point.y}L${point.x + width} ${point.y}L${point.x + width} ${point.y + height}L${point.x} ${point.y + height}Z`;
+	context.path.push(path);
 };
 
 export const fill = <State extends BaseState>(style: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => { 
@@ -159,21 +164,45 @@ export const click = <State extends BaseState>(callback: (state: State) => State
 	};
 };
 
+export const keydown = <State extends BaseState>(key: string, callback: (state: State) => State): Drawable<State> => ({state, next}) => {
+	if(state.inputs[key] === true) {
+		return callback(next);
+	} else {
+		return next;
+	}
+};
+
+export const keyup = <State extends BaseState>(key: string, callback: (state: State) => State): Drawable<State> => ({state, next}) => {
+	if(state.inputs[key] === false) {
+		return callback(next);
+	} else {
+		return next;
+	}
+};
+
+export const rect = <State extends BaseState>(x: number, y: number, width: number, height: number): Drawable<State> => ({context}) => {
+	context.fillRect(x, y, width, height);
+	context.strokeRect(x, y, width, height);
+	const point = applyState({context, x, y});
+	const path = `M${point.x} ${point.y}L${point.x + width} ${point.y}L${point.x + width} ${point.y + height}L${point.x} ${point.y + height}Z`;
+	context.path.push(path);
+};
+
 export const pack = <State extends BaseState>(game: Game<State>): (base: BaseState) => {
     imageData: ArrayBuffer,
-    cursor: string
+    cursor: string,
+	width: number,
+	height: number
 } => {
 	const {preload:{images}} = game;
-	Object.keys(images).map(key => {
-		return loadImage(path.join(__dirname, images[key])).then((data) => {
-			game.images[key] = data;
-		});
+	Object.keys(images).map(async key => {
+		const data = await loadImage(path.join(__dirname, images[key]));
+		game.images[key] = data;
 	});
 	const {preload:{audio}} = game;
-	Object.keys(audio).map(key => {
-		return audioLoader(path.join(__dirname, audio[key])).then((data) => {
-			game.audio[key] = data;
-		});
+	Object.keys(audio).map(async key => {
+		const data = await audioLoader(path.join(__dirname, audio[key]));
+		game.audio[key] = data;
 	});
 	const {width, height} = game;
 	const canvas = createCanvas(width, height);
@@ -196,7 +225,8 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 			...state,
 			...base,
 		} as State;
-		const next = game.screens.main({
+		const screen = game.getScreen(build);
+		const next = game.screens[screen]({
 			context,
 			game,
 			state: build,
@@ -204,6 +234,8 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 		}) || build;
 		state = next;
 		return {
+			width: game.width,
+			height: game.height,
 			imageData: context.getImageData(0, 0, width, height).data.buffer,
 			cursor: next.cursor
 		};

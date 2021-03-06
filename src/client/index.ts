@@ -1,4 +1,4 @@
-import {io} from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 let started = false;
 
@@ -50,13 +50,19 @@ document.body.onclick = () => {
 	setInterval(() => {
 		fps.innerHTML = `${Math.floor(1000 / total)}`;
 	}, 1000);
-	socket.on('video', ({cursor, imageData}: VideoData) => {
+	socket.on('video', ({cursor, imageData, width, height}: VideoData) => {
+		if(canvas.width != width) {
+			canvas.width = width;
+		}
+		if(canvas.height != height) {
+			canvas.height = height;
+		}
 		const now = Date.now();
 		const diff = now - last;
 		last = now;    
 		total = (total + diff) / 2;
 		const array = new Uint8ClampedArray(imageData);
-		const image = new ImageData(array, 200, 200);
+		const image = new ImageData(array, canvas.width, canvas.height);
 		videoContext.putImageData(image, 0, 0);
 		canvas.style.cursor = cursor;
 	});
