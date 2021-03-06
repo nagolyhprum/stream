@@ -61,9 +61,11 @@ document.body.onclick = () => {
 		const diff = now - last;
 		last = now;    
 		total = (total + diff) / 2;
-		const array = new Uint8ClampedArray(imageData);
-		const image = new ImageData(array, canvas.width, canvas.height);
-		videoContext.putImageData(image, 0, 0);
+		imageData.forEach(({ data, x, y, width, height}) => {
+			const array = new Uint8ClampedArray(data);
+			const image = new ImageData(array, width, height);
+			videoContext.putImageData(image, x, y);
+		});
 		canvas.style.cursor = cursor;
 	});
 	socket.on('audio', (data: AudioData) => {

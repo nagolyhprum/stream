@@ -14,6 +14,7 @@ const connections = new Set<string>();
 io.on('connection', (client: Socket) => {
 	connections.add(client.id);
 	let base: BaseState = {
+		dirty: [],
 		isNew: true,
 		last_update: Date.now(),
 		inputs: {},
@@ -43,6 +44,7 @@ io.on('connection', (client: Socket) => {
 				...base.mouse,
 				click: false
 			},
+			dirty: [],
 			inputs: {},
 			isNew: false,
 			last_update: now,

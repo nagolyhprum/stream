@@ -65,7 +65,13 @@ type Drawable<State extends BaseState> = (config: DrawableConfig<State>) => Stat
 
 interface VideoData {
     cursor: 'pointer' | 'default'
-    imageData: ArrayBuffer
+    imageData: Array<{
+        data: ArrayBuffer,
+        x: number,
+        y: number,
+        width: number,
+        height: number
+    }>
     width: number
     height: number
 }
@@ -102,7 +108,33 @@ interface Transform {
 
 type TransformState<State extends BaseState> = ((state: State) => Transform) | Transform
 
+interface Dirty {
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+
+    girth: number
+    fill: string
+    stroke: string
+    font: string
+    baseline: string
+    align: string
+    data: string
+}
+
 interface BaseState {
+    bounds?: {
+        min: {
+            x: number,
+            y: number
+        }
+        max: {
+            x: number,
+            y: number
+        }
+    }
+    dirty: Array<Dirty>
     isNew: boolean
     last_update: number
     diff: number

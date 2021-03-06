@@ -1,24 +1,51 @@
-import TheImage from './the_image.png';
 import Eclaire from './eclaircie.mp3';
-
 import {
-	group,
-	image,
-	move,
-	line,
-	click,
-	fill,
-	stroke,
-	update,
-	close,
 	align,
-	baseline,
+	baseline, click,
+
+
+
+	close, fill,
+
+
+
+
+
 	font,
-	width,
-	withState,
-	text,
-	pack
+	girth, group,
+	image,
+
+	line, move,
+
+
+
+
+
+
+
+
+
+
+
+
+	pack, stroke,
+
+
+
+
+
+
+
+	text, update,
+
+
+
+
+
+	withState
 } from './lib';
+import TheImage from './the_image.png';
+
 
 export const game = pack<TestState>({
 	width: 200,
@@ -49,6 +76,9 @@ export const game = pack<TestState>({
 				}
 			}
 		};
+	},
+	getScreen() {
+		return 'main';
 	},
 	screens: {
 		main: group([
@@ -90,7 +120,7 @@ export const game = pack<TestState>({
 			group([
 				align('center'),
 				baseline('top'),
-				width(2),
+				girth(2),
 				font('40px Times New Roman'),
 				withState(state => {
 					return fill(state.users[state.connection].rotation % (2 * Math.PI) < Math.PI ? 'red' : 'blue');

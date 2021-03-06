@@ -1,19 +1,27 @@
 import {
-    align,
-    baseline,
-    click,
-    fill,
-    font,
-    group,
-    keydown,
-    keyup,
-    pack,
-    rect,
-    stroke,
-    text,
-    update,
-    width,
-    withState
+	align,
+	baseline,
+	click,
+	fill,
+	font,
+
+
+
+
+
+
+
+
+	girth, group,
+	keydown,
+	keyup,
+	pack,
+	rect,
+	stroke,
+	text,
+	update,
+
+	withState
 } from './lib';
 
 const WIDTH = 640;
@@ -84,7 +92,7 @@ export const Pong = pack<PongState>({
 		landing: group([
 			group([
 				font('64px Courier New'),
-				width(2),
+				girth(2),
 				fill('red'),
 				stroke('white'),
 				baseline('top'),
@@ -93,7 +101,7 @@ export const Pong = pack<PongState>({
 			]),
 			group([
 				font('32px Courier New'),
-				width(2),
+				girth(2),
 				fill('red'),
 				stroke('white'),
 				baseline('top'),
@@ -174,7 +182,7 @@ export const Pong = pack<PongState>({
 					}
 				};
 			}),
-			width(0),
+			girth(0),
 			fill('white'),
 			stroke('transparent'),            
 			rect(0, PADDING, WIDTH, BALL_SIZE),
