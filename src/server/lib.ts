@@ -144,17 +144,25 @@ const dirty = <State extends BaseState>(context: CanvasRenderingContext2D, {
 	data?: string
 }, next: State): State => {
 	const girth = context.lineWidth;
-	const dx = Math.max(0, x - girth);
-	const dy = Math.max(0, y - girth);
-	const dw = Math.min(context.canvas.width - dx, width + 2 * girth);
-	const dh = Math.min(context.canvas.height - dy, height + 2 * girth);
-	return {
+	const sx = Math.round(Math.max(0, x - girth));
+	const sy = Math.round(Math.max(0, y - girth));
+	const dw = Math.round(Math.min(
+		context.canvas.width - sx, 
+		width + 2 * girth, 
+		x + width + girth
+	));
+	const dh = Math.round(Math.min(
+		context.canvas.height - sy, 
+		height + 2 * girth,
+		y + height + girth
+	));
+	return dw >= 1 && dh >= 1 ? {
 		...next,
 		dirty: [
 			...next.dirty,
 			{
-				x: dx,
-				y: dy,
+				x: sx,
+				y: sy,
 				width: dw,
 				height: dh,
 				data,
@@ -167,7 +175,7 @@ const dirty = <State extends BaseState>(context: CanvasRenderingContext2D, {
 				girth: context.lineWidth,
 			}
 		]
-	};
+	} : next;
 };
 
 const getTextXOffset = (context: CanvasRenderingContext2D, width: number): number => {
