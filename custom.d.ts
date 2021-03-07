@@ -91,7 +91,6 @@ interface Window {
 
 interface CanvasRenderingContext2D {
     state: Array<import('ml-matrix').Matrix>
-    path: string[]
 }
 
 interface Transform {

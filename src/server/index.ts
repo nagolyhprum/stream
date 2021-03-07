@@ -14,12 +14,16 @@ const connections = new Set<string>();
 io.on('connection', (client: Socket) => {
 	connections.add(client.id);
 	let base: BaseState = {
+		// per call
+		diff: 0,
+		connections: [],
+		connection: '',
+		// reset
 		dirty: [],
 		isNew: true,
 		last_update: Date.now(),
 		inputs: {},
 		cursor: 'default',
-		diff: 0,
 		mouse: {
 			move: {
 				x: -1,
@@ -27,34 +31,37 @@ io.on('connection', (client: Socket) => {
 			},
 			click: false
 		},
-		connection: '',
-		connections: []
 	};
 	const video = setInterval(() => {  
 		const now = Date.now();
-		const {imageData, cursor, width, height} = Pong({
+		const {imageData, cursor, width, height, dirty} = Pong({
 			...base,
 			diff: (now - base.last_update) / 1000,
 			connections: Array.from(connections),
-			connection: client.id
+			connection: client.id,
+			cursor: 'default'
 		});
+		const change = cursor !== base.cursor;
 		base = {
 			...base,
+			dirty,
+			isNew: false,
+			last_update: now,
+			inputs: {},
+			cursor,
 			mouse: {
 				...base.mouse,
 				click: false
 			},
-			dirty: [],
-			inputs: {},
-			isNew: false,
-			last_update: now,
 		};
-		client.emit('video', {
-			imageData,
-			cursor,
-			width,
-			height
-		});
+		if(change || imageData.length) {
+			client.emit('video', {
+				imageData,
+				cursor,
+				width,
+				height
+			});
+		}
 	}, 1000 / 60);
 	// let offset = 0
 	// const audio = setInterval(() => {

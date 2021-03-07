@@ -2,7 +2,6 @@ import audioLoader from 'audio-loader';
 import { createCanvas, loadImage } from 'canvas';
 import { Matrix } from 'ml-matrix';
 import path from 'path';
-import { pointInSvgPath } from 'point-in-svg-path';
 
 const applyMatrix = (context: CanvasRenderingContext2D, matrix: Matrix) => {
 	const index = context.state.length - 1;
@@ -72,8 +71,6 @@ export const group = <State extends BaseState>(children: Array<Drawable<State>>,
 			]));
 		} 
 	}
-	context.beginPath();
-	context.path = [];
 	const next = children.reduce<State>((next, child) => child({
 		...config,
 		next
@@ -81,8 +78,6 @@ export const group = <State extends BaseState>(children: Array<Drawable<State>>,
 		...config.next,
 		bounds: null
 	});
-	context.fill();
-	context.stroke();
 	if(transform) {
 		context.restore();
 		context.state.pop();  
@@ -208,10 +203,9 @@ export const text = <State extends BaseState>(text: string, x: number, y: number
 	context.strokeText(text, x, y);
 	const width = context.measureText(text).width;
 	const height = parseFloat(context.font);
-	const point = applyState({context, x, y});
-	const path = `M${point.x} ${point.y}L${point.x + width} ${point.y}L${point.x + width} ${point.y + height}L${point.x} ${point.y + height}Z`;
-	context.path.push(path);
 	const offset = getTextOffset(context, width, height);
+	context.beginPath();
+	context.rect(x, y, width, height);
 	return dirty(context, {
 		x: x - offset.x,
 		y: y - offset.y,
@@ -220,12 +214,20 @@ export const text = <State extends BaseState>(text: string, x: number, y: number
 	}, next);
 };
 
-export const fill = <State extends BaseState>(style: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => { 
-	context.fillStyle = style;
+export const fill = <State extends BaseState>(style?: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => { 
+	if(!style) {
+		context.fill();
+	} else {
+		context.fillStyle = style;
+	}
 };
 
-export const stroke = <State extends BaseState>(style: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => {
-	context.strokeStyle = style;
+export const stroke = <State extends BaseState>(style?: string | CanvasGradient | CanvasPattern): Drawable<State> => ({context}) => {
+	if(!style) {
+		context.stroke();
+	} else {
+		context.strokeStyle = style;
+	}
 };
 
 export const font = <State extends BaseState>(font: string): Drawable<State> => ({context}) => {
@@ -245,8 +247,6 @@ export const align = <State extends BaseState>(align: CanvasTextAlign): Drawable
 };
 
 export const move = <State extends BaseState>(x: number, y: number): Drawable<State> => ({context, next}) => {
-	const point = applyState({context, x, y});
-	context.path.push(`M${point.x} ${point.y}`);
 	context.moveTo(x, y);
 	return pushBounds(context, {
 		x,
@@ -255,8 +255,6 @@ export const move = <State extends BaseState>(x: number, y: number): Drawable<St
 };
 
 export const line = <State extends BaseState>(x: number, y: number): Drawable<State> => ({context, next}) => {
-	const point = applyState({context, x, y});
-	context.path.push(`L${point.x} ${point.y}`);
 	context.lineTo(x, y);
 	return pushBounds(context, {
 		x,
@@ -264,8 +262,11 @@ export const line = <State extends BaseState>(x: number, y: number): Drawable<St
 	}, next);
 };
 
+export const begin = <State extends BaseState>(): Drawable<State> => ({context}) => {
+	context.beginPath();
+};
+
 export const close = <State extends BaseState>(): Drawable<State> => ({context}) => {
-	context.path.push('Z');
 	context.closePath();
 };
 
@@ -289,10 +290,9 @@ export const withState = <State extends BaseState>(callback: (state: State) => D
 };
 
 export const click = <State extends BaseState>(callback: (state: State) => State): Drawable<State> => ({state, next, context}) => {
-	const path = context.path.join('');
 	const click = state.mouse.click;
 	const move = state.mouse.move;
-	const contains = pointInSvgPath(path, move.x, move.y);    
+	const contains = context.isPointInPath(move.x, move.y);  
 	if(contains && click) {
 		return callback(next);
 	}
@@ -321,15 +321,48 @@ export const keyup = <State extends BaseState>(key: string, callback: (state: St
 export const rect = <State extends BaseState>(x: number, y: number, width: number, height: number): Drawable<State> => ({context, next}) => {
 	context.fillRect(x, y, width, height);
 	context.strokeRect(x, y, width, height);
-	const point = applyState({context, x, y});
-	const path = `M${point.x} ${point.y}L${point.x + width} ${point.y}L${point.x + width} ${point.y + height}L${point.x} ${point.y + height}Z`;
-	context.path.push(path);
 	return dirty(context, {
 		x,
 		y,
 		width,
 		height
 	}, next);
+};
+
+const keys = <E>(input: E): Array<keyof E> => Object.keys(input) as Array<keyof E>;
+
+const deepEquals = <E>(a: E, b: E): boolean => {
+	if(a instanceof Array && b instanceof Array) {
+		return a.every((item, index) => deepEquals(item, b[index]));
+	}
+	if(typeof a === 'object' && typeof b === 'object') {
+		return keys(a).every(key => deepEquals(a[key], b[key]));
+	}
+	return a === b;
+};
+
+const getChanges = (from: Dirty[], to: Dirty[]): Dirty[] => {
+	// added
+	const added = to.filter(a => {
+		return !from.find(b => deepEquals(a, b));
+	});
+	// removed
+	const removed = from.filter(a => {
+		return !to.find(b => deepEquals(a, b));
+	});
+	// moved
+	const movedFrom = from.filter(a => {
+		return to.find(b => deepEquals(a, b));
+	});
+	const movedTo = to.filter(a => {
+		return from.find(b => deepEquals(a, b));
+	});
+	const moved = movedFrom.filter((a, index) => {
+		const instance = movedTo.find(b => deepEquals(a, b));
+		return instance && movedTo.indexOf(instance) !== index;
+	});
+
+	return [...added, ...removed, ...moved];
 };
 
 export const pack = <State extends BaseState>(game: Game<State>): (base: BaseState) => {
@@ -343,6 +376,7 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 	width: number,
 	height: number,
     cursor: string,
+	dirty: Dirty[]
 } => {
 	const {preload:{images}} = game;
 	Object.keys(images).map(async key => {
@@ -364,7 +398,6 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 			[0, 0, 1]
 		])
 	];
-	context.path = [];
 	let state = game.init();
 
 	return (base: BaseState) => {
@@ -372,9 +405,11 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 		const build = base.isNew ? game.connect({
 			...state,
 			...base,
+			dirty: [] as Dirty[]
 		} as State) : {
 			...state,
 			...base,
+			dirty: [] as Dirty[]
 		} as State;
 		const screen = game.getScreen(build);
 		const next = game.screens[screen]({
@@ -383,7 +418,13 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 			state: build,
 			next: build
 		}) || build;
-		const imageData = [...((state as State).dirty ?? []), ...next.dirty].map(dirty => {
+		const imageData = base.isNew ? [{
+			x: 0,
+			y: 0,
+			width,
+			height,
+			data: context.getImageData(0, 0, width, height).data.buffer
+		}] : getChanges(base.dirty, next.dirty).map(dirty => {
 			return {
 				x: dirty.x,
 				y: dirty.y,
@@ -396,7 +437,8 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 		return {			
 			width,
 			height,
-			imageData,
+			dirty: next.dirty,
+			imageData: imageData,
 			cursor: next.cursor
 		};
 	};
