@@ -161,7 +161,8 @@ export const Pong = pack<PongState>({
 			keyup('s', handleVelocity(0)),
 			update(state => {
 				const game = state.games[state.cache[state.connection]];
-				const {paddle} = game;
+				const {paddle, left} = game;
+				const which = state.connection === left ? 'left' : 'right';
 				return {
 					...state,
 					games: {
@@ -169,13 +170,10 @@ export const Pong = pack<PongState>({
 						[state.cache[state.connection]]: {
 							...game,
 							paddle: {
-								left: {
-									...paddle.left,
-									position: paddle.left.position + paddle.left.velocity * state.diff
-								},
-								right: {
-									...paddle.right,
-									position: paddle.right.position + paddle.right.velocity * state.diff
+								...paddle,
+								[which]: {
+									...paddle[which],
+									position: paddle[which].position + paddle[which].velocity * state.diff
 								}
 							}
 						}
