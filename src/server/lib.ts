@@ -373,6 +373,43 @@ const getChanges = (from: Dirty[], to: Dirty[]): Dirty[] => {
 	return [...added, ...removed, ...moved];
 };
 
+const intersects = (a: Rect, b: Rect): boolean => {
+	const mx = Math.max(a.x, b.x);
+	const my = Math.max(a.y, b.y);
+	const Mx = Math.min(a.x + a.width, b.x + b.width);
+	const My = Math.min(a.y + a.height, b.y + b.height);
+	return mx < Mx && my < My;
+};
+
+const merge = (a: Rect, b: Rect): Rect => {
+	const mx = Math.min(a.x, b.x);
+	const my = Math.min(a.y, b.y);
+	const Mx = Math.max(a.x + a.width, b.x + b.width);
+	const My = Math.max(a.y + a.height, b.y + b.height);
+	return {
+		x: mx,
+		y: my,
+		width: Mx - mx,
+		height: My - my
+	};
+};
+
+const mergeDirty = (dirty: Rect[]): Rect[] => {
+	for(let i = 0; i < dirty.length; i++) {
+		for(let j = i + 1; j < dirty.length; j++) {
+			const a = dirty[i];
+			const b = dirty[j];
+			if(intersects(a, b)) {
+				dirty[i] = merge(a, b);
+				dirty.splice(j, 1);
+				i = 0;
+				break;
+			}
+		}
+	}
+	return dirty;
+};
+
 export const pack = <State extends BaseState>(game: Game<State>): (base: BaseState) => {
     imageData: Array<{
 		data: ArrayBuffer,
@@ -432,7 +469,7 @@ export const pack = <State extends BaseState>(game: Game<State>): (base: BaseSta
 			width,
 			height,
 			data: context.getImageData(0, 0, width, height).data.buffer
-		}] : getChanges(base.dirty, next.dirty).map(dirty => {
+		}] : mergeDirty(getChanges(base.dirty, next.dirty)).map(dirty => {
 			return {
 				x: dirty.x,
 				y: dirty.y,

@@ -89,6 +89,13 @@ interface Window {
     webkitAudioContext: typeof AudioContext
 }
 
+interface Rect {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 interface CanvasRenderingContext2D {
     state: Array<import('ml-matrix').Matrix>
 }
